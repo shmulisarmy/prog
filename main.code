@@ -1,0 +1,76 @@
+void void
+
+
+
+
+Person class[Person] = class{
+    id int
+    age int
+}
+
+
+
+
+getPerson function[class[Person]] = function() class[Person]{
+    return Person(2, 23)
+}
+
+
+
+add function[int, int] = function(a int, b int) int {
+    return a+b
+
+}
+fib function[int, int] = function(n int) int {
+    if (n < 3){
+        return n
+    }
+    return fib(n-1) + fib(n-2)
+}
+
+add1 function[int, void] = function(a int) void {
+    return void
+}
+
+
+main function[void] = function() void {
+    person class[Person] = Person(1, 23)
+    personPointer pointer[class[Person]] = &person
+    person2Pointer pointer[class[Person]] = &person
+    z pointer[int] = &person2Pointer.age
+    :printEntireStack
+    z = &person2Pointer.id
+    :printEntireStack
+    personPointer.age = 203
+    :printEntireStack
+    a int = 10
+    ap pointer[int] = &a
+    a1 int = *ap
+    :printEntireStack
+    *ap = 100
+    :printEntireStack
+    personAgePointer pointer[int] = &person.age
+    :printEntireStack
+    *personAgePointer = 102
+    :printEntireStack
+    n int = person.age+person.age
+    :printEntireStack
+    b int = 1 + a
+    d int = 100
+    :printEntireStack
+    d = fib(1)
+    :printEntireStack
+    d = fib(2)
+    :printEntireStack
+    d = fib(3)
+    :printEntireStack
+    d = fib(4)
+    :printEntireStack
+    d = fib(5)
+    :printEntireStack
+    d = fib(6)
+    :printEntireStack
+    b = add(100, 100)
+    :printEntireStack
+    return void
+}
