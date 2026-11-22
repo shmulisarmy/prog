@@ -11,6 +11,7 @@ class MemLocationKind(Enum):
     local_ = auto()
     AbsoluteStackPosition = auto()
     NA = auto()
+    heap = auto()
 
 @dataclass
 class MemSlot:

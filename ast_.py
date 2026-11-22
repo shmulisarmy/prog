@@ -3,7 +3,7 @@ from typing import TypeAlias
 
 from builtInFunctions import BuiltInFunction
 from runtime_data_types import MemLocationKind, MemSlot
-from slassReturn import ClassReturn
+from classReturn import ClassReturn
 import utils
 
 
@@ -79,6 +79,11 @@ class Deref:
 
 
 @dataclass
+class New:
+    expression: Expression
+
+
+@dataclass
 class Variable:
     name: str
     type_: Type|None
@@ -139,7 +144,7 @@ class ReturnStmt:
 Statement: TypeAlias = Variable|Block|ReturnStmt|FunctionCall|BuiltInFunction|Assignment|IfStatement|ClassReturn
 
 
-Expression = Number|String|Operation|FunctionCall|FieldAccess|Ident|Pointer|Deref|Variable|FunctionDef|ClassDef
+Expression = Number|String|Operation|FunctionCall|FieldAccess|Ident|Pointer|Deref|New|Variable|FunctionDef|ClassDef
 
 
 Scope: TypeAlias = FunctionDef|Block|Program|ClassDef

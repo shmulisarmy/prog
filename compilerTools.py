@@ -16,6 +16,7 @@ from ast_ import (
     FunctionCall,
     FunctionDef,
     Ident,
+    New,
     Number,
     Operation,
     Pointer,
@@ -92,6 +93,9 @@ def isPointingToClass(functionReference: Expression, scopeInfo: ScopeInfo):
 @typecheck
 def getExpressionType(expression: Expression, scopeInfo: ScopeInfo) -> Type:
     match expression:
+        case New():
+            innerType = getExpressionType(expression.expression, scopeInfo)
+            return Type("pointer", subtypes=[innerType])
         case Number():
             return Type("int")
         case String():
@@ -114,13 +118,13 @@ def getExpressionType(expression: Expression, scopeInfo: ScopeInfo) -> Type:
         case Pointer():
             return Type("pointer", [getExpressionType(expression.pointsTo, scopeInfo)])
         case FieldAccess():
-            var_, _ = getVariable(expression.object, scopeInfo)
-            if var_.type_.name == "pointer":
-                assert var_.type_.subtypes[0].name == "class"
-                cls, _ = getClass(var_.type_.subtypes[0].subtypes[0].name, scopeInfo)
+            type_ = getExpressionType(expression.object, scopeInfo)
+            if type_.name == "pointer":
+                assert type_.subtypes[0].name == "class"
+                cls, _ = getClass(type_.subtypes[0].subtypes[0].name, scopeInfo)
             else:
-                assert var_.type_.name == "class"
-                cls, _ = getClass(var_.type_.subtypes[0].name, scopeInfo)
+                assert type_.name == "class"
+                cls, _ = getClass(type_.subtypes[0].name, scopeInfo)
             assert isinstance(cls, ClassDef), f"{cls} is not ClassDef"
             field = cls.getFeild(expression.fieldName)
             return field.type_

@@ -1,9 +1,11 @@
+from copy import deepcopy
 from dataclasses import dataclass, field
 import operator
 
 from ast_ import ClassReturn
 from builtInFunctions import BuiltInFunction, builtInFunctions
-from instructions import OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, LoadMemoryFromSlot, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushNumber, ReturnInstruction
+from heap import Heap
+from instructions import Allocate, Dup, OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, LoadMemoryFromSlot, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushNumber, ReturnInstruction
 from runtime_data import FunctionInstructionStartLocations, functionInstructions, FunctionStackBumpSize
 from runtime_data_types import MemLocationKind, MemSlot
 
@@ -32,6 +34,7 @@ class Vm:
     stack: list[int | float] = field(default_factory=list)
     stackframes: list[Stackframe] = field(default_factory=list)
     instructionPtr = 0
+    heap: Heap = field(default_factory=Heap)
     def __post_init__(self):
         
         self.instructionPtr = len(self.instructions)
@@ -57,7 +60,7 @@ class Vm:
                     recentFrame = self.stackframes.pop()
                     self.instructionPtr = recentFrame.InstructionReturnAdrress
                 case BuiltInFunction():
-                    builtInFunctions[instruction.name](self.stack)
+                    builtInFunctions[instruction.name](self)
                 case CallFunctionWithParamStackSize():
                     functionId = self.stack.pop()
                     self.stackframes.append(Stackframe(len(self.stack)-instruction.paramStackSize, self.instructionPtr))
@@ -75,10 +78,16 @@ class Vm:
                 case DerefInstruction():
                     absoluteMemSlot = self.stack.pop()
                     assert isinstance(absoluteMemSlot, MemSlot)
-                    assert absoluteMemSlot.memLocationKind == MemLocationKind.AbsoluteStackPosition, f"not handling {absoluteMemSlot.memLocationKind} yet"
                     assert instruction.size == absoluteMemSlot.size
-                    mem = self.stack[absoluteMemSlot.memOffset:instruction.size]
-                    self.stack.extend(mem)
+                    match absoluteMemSlot.memLocationKind:
+                        case MemLocationKind.heap:
+                            mem = self.heap.read(absoluteMemSlot)
+                            self.stack.extend(mem)
+                        case MemLocationKind.AbsoluteStackPosition:
+                            mem = self.stack[absoluteMemSlot.memOffset:instruction.size]
+                            self.stack.extend(mem)
+                        case _:
+                            raise Exception(f"not handling {absoluteMemSlot.memLocationKind} yet")
                 case PlaceAbsoluteMemSlotOnStack(memSlot):
                     if memSlot.memLocationKind != MemLocationKind.local_:
                         raise
@@ -96,12 +105,21 @@ class Vm:
                 case PlaceStackMemoryIntoMemslotOnStack(size):
                     memslot = self.stack.pop()
                     assert isinstance(memslot, MemSlot)
+                    assert memslot.size
                     assert memslot.size == size, f"{memslot.size} != {size}"
-                    assert memslot.memLocationKind == MemLocationKind.AbsoluteStackPosition, f"we dont handle {slot.memLocationKind} yet"
-
-                    source = len(self.stack) - memslot.size
-                    self.stack[memslot.memOffset: memslot.memOffset + memslot.size] = self.stack[source:]
-                    del self.stack[source:]
+                    match memslot.memLocationKind:
+                        case MemLocationKind.heap:
+                            source = len(self.stack) - memslot.size
+                            self.heap.write(memslot, self.stack[source:])
+                            del self.stack[source:]
+                        case MemLocationKind.AbsoluteStackPosition:
+                            source = len(self.stack) - memslot.size
+                            self.stack[memslot.memOffset: memslot.memOffset + memslot.size] = self.stack[source:]
+                            del self.stack[source:]
+                        case _:
+                            raise Exception(f"we dont handle {memslot.memLocationKind} yet")
+                    if instruction.keepSlotAround:
+                        self.stack.append(memslot)
 
                 case OffsetPointer(offset, size):
                     pointer = self.stack[-1]
@@ -111,6 +129,11 @@ class Vm:
                         memLocationKind=pointer.memLocationKind,
                         size=size,
                     )
+                case Dup():
+                    self.stack.append(deepcopy(self.stack[-1]))
+                case Allocate(size):
+                    memSlot = self.heap.allocate(size)
+                    self.stack.append(memSlot)
                 case BinaryOperation(op):
 
                     if op not in OPERATIONS:

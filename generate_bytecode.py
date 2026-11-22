@@ -5,10 +5,10 @@ import re
 from typing import TypeAlias
 
 from typeguard import typechecked
-from ast_ import Assignment, Block, ClassDef, ClassReturn, Deref, Expression, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, Number, Operation, Pointer, Program, ReturnStmt, ScopeInfo, Statement, Type, Variable
+from ast_ import Assignment, Block, ClassDef, ClassReturn, Deref, Expression, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, New, Number, Operation, Pointer, Program, ReturnStmt, ScopeInfo, Statement, Type, Variable
 from builtInFunctions import BuiltInFunction
 from compilerTools import getClass, getExpressionSize, getExpressionType, getTypeSize, getVariable, resolveFunctionReferenceToDefinition
-from instructions import OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, LoadMemoryFromSlot, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushNumber, ReturnInstruction
+from instructions import Allocate, Dup, OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, LoadMemoryFromSlot, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushNumber, ReturnInstruction
 import instructions
 import runtime_data
 from runtime_data_types import MemLocationKind, MemSlot
@@ -137,6 +137,12 @@ def makeExpressionByteCode(expression: Expression, scopeInfo: ScopeInfo) -> list
             size = getTypeSize(type_.subtypes[0], scopeInfo)
             instructions.append(DerefInstruction(size))
             return instructions
+        case New():
+            instructions = makeExpressionByteCode(expression.expression, scopeInfo)
+            size = getExpressionSize(expression.expression, scopeInfo)
+            instructions.append(Allocate(size))
+            instructions.append(PlaceStackMemoryIntoMemslotOnStack(size, keepSlotAround=True))
+            return instructions
         case Operation(op, left=left, right=right):
             return (
                 makeExpressionByteCode(left, scopeInfo)
@@ -180,4 +186,4 @@ def resolveMemoryLocation(expression: Expression, scopeInfo: ScopeInfo) -> tuple
             assert var_.compileTimeInfo_memSlot, f"its {var_}"
             return var_.compileTimeInfo_memSlot, varsScope, var_.type_, None
         case _:
-            raise
+            raise Exception(f"unhandled: {expression}")

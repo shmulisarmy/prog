@@ -34,13 +34,22 @@ add1 function[int, void] = function(a int) void {
 
 
 main function[void] = function() void {
+    z pointer[int] = new 1
+    z = new 1
+    z = new 1
+    z = new 1
+    z = new 1
+    z = new 1000
+    i10 int = *z
+    :printEntireHeapMemory
+    :printEntireStack
+    *z = 2
+    i10 = *z
+    :printEntireHeapMemory
+    :printEntireStack
     person class[Person] = Person(1, 23)
     personPointer pointer[class[Person]] = &person
-    person2Pointer pointer[class[Person]] = &person
-    z pointer[int] = &person2Pointer.age
-    :printEntireStack
-    z = &person2Pointer.id
-    :printEntireStack
+    person2Pointer pointer[pointer[class[Person]]] = &personPointer
     personPointer.age = 203
     :printEntireStack
     a int = 10

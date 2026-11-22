@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from ast_ import (
-    Assignment, Block, ClassDef, Deref, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, Number,
+    Assignment, Block, ClassDef, Deref, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, New, Number,
     Operation, Pointer, Program, ReturnStmt, Type, Variable,
 )
 from parser import parse
@@ -10,6 +10,14 @@ from builtInFunctions import BuiltInFunction
 
 
 class ParserTest(unittest.TestCase):
+    def test_new_expression(self):
+        self.assertEqual(parse("z1 pointer[int] = new 1"), Program([
+            Variable("z1", Type("pointer", [Type("int")]), New(Number(1))),
+        ]))
+        self.assertEqual(parse("p := new (1 + 2)"), Program([
+            Variable("p", None, New(Operation("+", Number(1), Number(2)))),
+        ]))
+
     def test_pointer_expression(self):
         expected = Variable("ap", Type("pointer", [Type("int")]), Pointer(pointsTo=Ident("a")))
         self.assertEqual(parse("ap pointer[int] = &a"), Program([expected]))

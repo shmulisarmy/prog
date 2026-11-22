@@ -3,7 +3,7 @@
 import re
 
 from ast_ import (
-    Assignment, Block, ClassDef, Deref, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, Number,
+    Assignment, Block, ClassDef, Deref, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, New, Number,
     Operation, Pointer, Program, ReturnStmt, Type, Variable,
 )
 from builtInFunctions import BuiltInFunction
@@ -59,7 +59,7 @@ class Parser:
 
     def name(self):
         token = self.token
-        if not _NAME.fullmatch(token) or token in {"class", "function", "if", "else", "return"}:
+        if not _NAME.fullmatch(token) or token in {"class", "function", "if", "else", "return", "new"}:
             self.error(f"Expected a name, got {token or 'end of input'!r}")
         self.position += 1
         return token
@@ -182,7 +182,9 @@ class Parser:
         return left
 
     def primary(self):
-        if self.accept("&"):
+        if self.accept("new"):
+            value = New(self.primary())
+        elif self.accept("&"):
             value = Pointer(self.primary())
         elif self.accept("*"):
             value = Deref(self.primary())

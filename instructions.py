@@ -3,7 +3,7 @@ from typing import TypeAlias
 
 from builtInFunctions import BuiltInFunction
 from runtime_data_types import MemSlot
-from slassReturn import ClassReturn
+from classReturn import ClassReturn
 
 
 @dataclass
@@ -33,6 +33,7 @@ class PlaceStackMemoryIntoSlot:
 @dataclass
 class PlaceStackMemoryIntoMemslotOnStack:
     size: int
+    keepSlotAround: bool = False
 
 @dataclass
 class OffsetPointer:
@@ -56,4 +57,14 @@ class DerefInstruction:
 class JumpIfZero:
     jumpBy: int
 
-Instruction: TypeAlias = PushNumber | BinaryOperation|CallFunctionWithParamStackSize|ReturnInstruction|PlaceStackMemoryIntoSlot|LoadMemoryFromSlot|ClassReturn|BuiltInFunction|PlaceAbsoluteMemSlotOnStack|DerefInstruction|PlaceStackMemoryIntoMemslotOnStack|OffsetPointer
+
+@dataclass
+class Allocate:
+    amount: int
+
+
+@dataclass
+class Dup:
+    pass
+
+Instruction: TypeAlias = PushNumber | BinaryOperation|CallFunctionWithParamStackSize|ReturnInstruction|PlaceStackMemoryIntoSlot|LoadMemoryFromSlot|ClassReturn|BuiltInFunction|PlaceAbsoluteMemSlotOnStack|DerefInstruction|PlaceStackMemoryIntoMemslotOnStack|OffsetPointer|Allocate|Dup
