@@ -1,43 +1,61 @@
 import unittest
 
-from ast_ import Ident, Number, Operation
+from ast_ import ScopeInfo
+from generate_bytecode import makeExpressionByteCode
 from instructions import BinaryOperation, PushNumber
-from main import makeExpressionByteCode
+from parser import parse
+from source_range import Position, Range
 from vm import Vm
 
 
-class VMTest(unittest.TestCase):
-    def setUp(self):
-        self.vm = Vm()
+position = Position('test.code', 1, 1)
+DEBUG_LOCATION = dict(range=Range(position, position), created_at=__file__)
 
-    def test_literal_and_fresh_stack(self):
-        self.assertEqual(self.vm.execute(makeExpressionByteCode(Number(8))), [8])
-        self.assertEqual(self.vm.execute([]), [])
+
+def compile_expression(source):
+    program = parse('value := ' + source, 'test.code')
+    return makeExpressionByteCode(program.symbols[0].defaultValue, ScopeInfo(program))
+
+
+class VMTest(unittest.TestCase):
+    def test_literal_and_independent_stacks(self):
+        vm = Vm(compile_expression('8'))
+        vm.execute()
+        self.assertEqual(vm.stack, [8])
+        empty = Vm([])
+        empty.execute()
+        self.assertEqual(empty.stack, [])
+        self.assertEqual(vm.stack, [8])
 
     def test_nested_expression(self):
-        expression = Operation("-", Number(20), Operation("*", Number(3), Number(4)))
-        self.assertEqual(makeExpressionByteCode(expression), [
-            PushNumber(20), PushNumber(3), PushNumber(4),
-            BinaryOperation("*"), BinaryOperation("-"),
+        instructions = compile_expression('20 - 3 * 4')
+        self.assertEqual(instructions, [
+            PushNumber(20, **DEBUG_LOCATION), PushNumber(3, **DEBUG_LOCATION),
+            PushNumber(4, **DEBUG_LOCATION), BinaryOperation('*', **DEBUG_LOCATION),
+            BinaryOperation('-', **DEBUG_LOCATION),
         ])
-        self.assertEqual(self.vm.execute(makeExpressionByteCode(expression)), [8])
+        vm = Vm(instructions)
+        vm.execute()
+        self.assertEqual(vm.stack, [8])
 
     def test_arithmetic(self):
-        for op, expected in [("+", 10), ("-", 4), ("*", 21), ("/", 7 / 3), ("//", 2), ("%", 1)]:
+        for op, expected in [('+', 10), ('-', 4), ('*', 21), ('/', 7 / 3), ('//', 2), ('%', 1)]:
             with self.subTest(op=op):
-                expression = Operation(op, Number(7), Number(3))
-                self.assertEqual(self.vm.execute(makeExpressionByteCode(expression)), [expected])
+                vm = Vm(compile_expression('7 ' + op + ' 3'))
+                vm.execute()
+                self.assertEqual(vm.stack, [expected])
 
     def test_invalid_input(self):
-        with self.assertRaises(TypeError):
-            makeExpressionByteCode(Ident("a"))
+        with self.assertRaises(NameError):
+            compile_expression('missing')
         with self.assertRaises(ValueError):
-            self.vm.execute([BinaryOperation("+")])
+            Vm([BinaryOperation('+', **DEBUG_LOCATION)]).execute()
         with self.assertRaises(ValueError):
-            self.vm.execute([PushNumber(1), PushNumber(2), BinaryOperation("unknown")])
+            Vm([PushNumber(1, **DEBUG_LOCATION), PushNumber(2, **DEBUG_LOCATION),
+                BinaryOperation('unknown', **DEBUG_LOCATION)]).execute()
         with self.assertRaises(ZeroDivisionError):
-            self.vm.execute(makeExpressionByteCode(Operation("/", Number(1), Number(0))))
+            Vm(compile_expression('1 / 0')).execute()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

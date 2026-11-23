@@ -1,3 +1,4 @@
+from current_line import current_line
 import unittest
 from pathlib import Path
 
@@ -39,9 +40,9 @@ class ParserTest(unittest.TestCase):
         ]))
 
     def test_class_declaration(self):
-        source = "\n".join(Path(__file__).with_name("main.code").read_text().splitlines()[6:10])
+        source = "Person class[Person] = class { id int; age int }"
         self.assertEqual(parse(source), Program([
-            Variable("Person", Type("class"), ClassDef([
+            Variable("Person", Type("class", [Type("Person")]), ClassDef([
                 Variable("id", Type("int")), Variable("age", Type("int"))])),
         ]))
 
@@ -60,17 +61,13 @@ class ParserTest(unittest.TestCase):
     def test_main_code(self):
         source = Path(__file__).with_name("main.code").read_text()
         program = parse(source, "main.code")
-        self.assertEqual(program.symbols[2], Variable("add", Type("function", [Type("int"), Type("int")]), FunctionDef(
+        symbols = {symbol.name: symbol for symbol in program.symbols}
+        self.assertEqual(symbols["add"], Variable("add", Type("function", [Type("int"), Type("int")]), FunctionDef(
             [Variable("a", Type("int")), Variable("b", Type("int"))],
             Type("int"), Block([ReturnStmt(Operation("+", Ident("a"), Ident("b")))]))))
-        self.assertEqual([symbol.name for symbol in program.symbols], ["void", "Person", "add", "fib", "main"])
-        self.assertEqual(program.symbols[4].defaultValue.body.statements[2],
-                         Variable("n", Type("int"), Operation("+",
-                             FieldAccess(Ident("person"), "age"), FieldAccess(Ident("person"), "age"))))
-        self.assertEqual(program.symbols[4].defaultValue.body.statements[3],
-                         Assignment(FieldAccess(Ident("person"), "age"), Number(1)))
-        self.assertEqual(program.symbols[4].defaultValue.body.statements[6],
-                         BuiltInFunction("printEntireStack"))
+        main = symbols["main"].defaultValue
+        self.assertIsInstance(main, FunctionDef)
+        self.assertEqual(main.body.statements[-1], ReturnStmt(Ident("void")))
 
     def test_field_assignment(self):
         program = parse("main := function() void { person.age=1; person.parent.age = person.age + 1 }")
@@ -97,7 +94,8 @@ class ParserTest(unittest.TestCase):
     def test_builtin_statement(self):
         program = parse("main := function() void { :printEntireStack; :printNumberOnStack }")
         self.assertEqual(program.symbols[0].defaultValue.body, Block([
-            BuiltInFunction("printEntireStack"), BuiltInFunction("printNumberOnStack"),
+            BuiltInFunction("printEntireStack", range=program.symbols[0].defaultValue.body.statements[0].range, created_at=current_line()),
+            BuiltInFunction("printNumberOnStack", range=program.symbols[0].defaultValue.body.statements[1].range, created_at=current_line()),
         ]))
         for statement in (":", ":123", ":printEntireStack()"):
             with self.subTest(statement=statement), self.assertRaises(SyntaxError):

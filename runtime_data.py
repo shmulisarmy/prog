@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 
-globalMemBumSlot = 0
+globalMemBumpSlot = 0
 functionIds = 1
 functionInstructions: list[Instruction] = []
 FunctionDefinitionsToTurnIntoInstructions: list[FunctionDef] = []

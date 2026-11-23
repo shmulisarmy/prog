@@ -31,8 +31,6 @@ def typeCheckExpression(expression: Expression, scopeInfo: ScopeInfo):
 
 @typecheck
 def typeCheckVariable(variable: Variable, scopeInfo: ScopeInfo):
-    if variable.type_.name == "class":
-        return
     if not variable.defaultValue:
         return
     actual_type = getExpressionType(variable.defaultValue, scopeInfo)

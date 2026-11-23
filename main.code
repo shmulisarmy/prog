@@ -1,4 +1,8 @@
 void void
+i int = 10000001
+person class[Person] = Person(2, 202)
+i2 int = 10000001
+i3 int = 10000001
 
 
 
@@ -34,6 +38,7 @@ add1 function[int, void] = function(a int) void {
 
 
 main function[void] = function() void {
+    :printEntireStack
     z pointer[int] = new 1
     z = new 1
     z = new 1
@@ -41,11 +46,9 @@ main function[void] = function() void {
     z = new 1
     z = new 1000
     i10 int = *z
-    :printEntireHeapMemory
     :printEntireStack
     *z = 2
     i10 = *z
-    :printEntireHeapMemory
     :printEntireStack
     person class[Person] = Person(1, 23)
     personPointer pointer[class[Person]] = &person
@@ -53,33 +56,5 @@ main function[void] = function() void {
     personPointer.age = 203
     :printEntireStack
     a int = 10
-    ap pointer[int] = &a
-    a1 int = *ap
-    :printEntireStack
-    *ap = 100
-    :printEntireStack
-    personAgePointer pointer[int] = &person.age
-    :printEntireStack
-    *personAgePointer = 102
-    :printEntireStack
-    n int = person.age+person.age
-    :printEntireStack
-    b int = 1 + a
-    d int = 100
-    :printEntireStack
-    d = fib(1)
-    :printEntireStack
-    d = fib(2)
-    :printEntireStack
-    d = fib(3)
-    :printEntireStack
-    d = fib(4)
-    :printEntireStack
-    d = fib(5)
-    :printEntireStack
-    d = fib(6)
-    :printEntireStack
-    b = add(100, 100)
-    :printEntireStack
     return void
 }

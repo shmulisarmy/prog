@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import field
+from source_range import Range
+from runtime_types import dataclass
 from typing import Callable, TypeAlias
 
 
@@ -12,5 +14,7 @@ builtInFunctions: dict[str, Callable[[StackType]]] = {
 
 @dataclass
 class BuiltInFunction:
+    range: Range = field(kw_only=True, compare=False)
+    created_at: str = field(kw_only=True, compare=False)
     name: str
     

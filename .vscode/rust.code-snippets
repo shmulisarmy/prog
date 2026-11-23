@@ -1,0 +1,7 @@
+{
+    "class": {
+        "prefix": "dc",
+        "body": "@dataclass\nclass ${1}:",
+        "description": "description"
+    }
+}

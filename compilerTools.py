@@ -1,3 +1,4 @@
+from current_line import current_line
 from copy import deepcopy
 from os import name
 from typing import Generator
@@ -126,9 +127,8 @@ def getExpressionType(expression: Expression, scopeInfo: ScopeInfo) -> Type:
                 assert type_.name == "class"
                 cls, _ = getClass(type_.subtypes[0].name, scopeInfo)
             assert isinstance(cls, ClassDef), f"{cls} is not ClassDef"
-            field = cls.getFeild(expression.fieldName)
+            field = cls.getField(expression.fieldName)
             return field.type_
-                
         case Deref():
             pointerType = getExpressionType(expression.pointer, scopeInfo)
             assert pointerType.name == "pointer"
@@ -176,7 +176,7 @@ def resolveFunctionReferenceToDefinition(functionReference: Expression, scopeInf
     if isinstance(var_.defaultValue, ClassDef):
         cls = var_.defaultValue
         functionDef = FunctionDef(params=deepcopy(cls.fields), ReturnType=Type("class", [Type(var_.name)]), body=Block([
-            ClassReturn()
+            ClassReturn(range=functionReference.range, created_at=current_line())
         ]), parent_positioning=cls.parent_positioning, isConstructor=True)
         FunctionDefinitionsToTurnIntoInstructions.append(functionDef)
     else:

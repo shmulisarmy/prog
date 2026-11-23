@@ -1,6 +1,10 @@
 """Parse source text into the AST used by the compiler: parse(source) -> Program."""
 
+from current_line import current_line
+
 import re
+from bisect import bisect_right
+from source_range import Position, Range
 
 from ast_ import (
     Assignment, Block, ClassDef, Deref, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, New, Number,
@@ -18,6 +22,7 @@ class Parser:
     def __init__(self, source: str, filename: str = "<source>"):
         self.source = source
         self.filename = filename
+        self.line_starts = [0] + [m.end() for m in re.finditer("\n", source)]
         self.tokens = []
         offset = 0
         while offset < len(source):
@@ -35,6 +40,19 @@ class Parser:
     @property
     def token(self):
         return self.tokens[self.position][0]
+
+    def source_position(self, offset):
+        line = bisect_right(self.line_starts, offset)
+        return Position(self.filename, line, offset - self.line_starts[line - 1] + 1)
+
+    def range_from(self, start):
+        token, offset = self.tokens[self.position - 1]
+        return Range(self.source_position(self.tokens[start][1]),
+                     self.source_position(offset + len(token)))
+
+    def located(self, node, start):
+        node.range = self.range_from(start)
+        return node
 
     def error(self, message, offset=None):
         if offset is None:
@@ -83,9 +101,10 @@ class Parser:
         while self.token:
             symbols.append(self.variable())
             self.end_statement()
-        return Program(symbols)
+        return Program(symbols, range=Range(self.source_position(0), self.source_position(len(self.source))))
 
     def class_def(self):
+        start = self.position - 1  # Include the already consumed 'class'.
         self.newlines()
         self.expect("{")
         fields = []
@@ -95,9 +114,10 @@ class Parser:
                 self.error("Expected '}' before end of input")
             fields.append(self.variable())
             self.end_statement()
-        return ClassDef(fields)
+        return self.located(ClassDef(fields), start)
 
     def type(self):
+        start = self.position
         if self.token in ("class", "function"):
             name = self.token
             self.position += 1
@@ -113,19 +133,24 @@ class Parser:
                     self.expect("]")
                     break
                 self.newlines()
-        return Type(name, subtypes)
+        return self.located(Type(name, subtypes), start)
 
     def variable(self):
+        start = self.position
         name = self.name()
         if self.accept(":="):
             value = self.expression()
-            return Variable(name, Type("class") if isinstance(value, ClassDef) else None, value)
+            type_ = None
+            if isinstance(value, ClassDef):
+                type_ = Type("class", range=value.range)
+            return self.located(Variable(name, type_, value), start)
         type_ = self.type()
         value = self.expression() if self.accept("=") else None
-        return Variable(name, type_, value)
+        return self.located(Variable(name, type_, value), start)
 
     def block(self):
         self.newlines()
+        start = self.position
         self.expect("{")
         statements = []
         self.separators()
@@ -134,15 +159,17 @@ class Parser:
                 self.error("Expected '}' before end of input")
             statements.append(self.statement())
             self.end_statement()
-        return Block(statements)
+        return self.located(Block(statements), start)
 
     def statement(self):
+        start = self.position
         if self.accept(":"):
-            return BuiltInFunction(self.name())
+            name = self.name()
+            return BuiltInFunction(name, range=self.range_from(start), created_at=current_line())
         if self.token == "{":
             return self.block()
         if self.accept("return"):
-            return ReturnStmt(self.expression())
+            return self.located(ReturnStmt(self.expression()), start)
         if self.accept("if"):
             self.expect("(")
             self.newlines()
@@ -154,9 +181,9 @@ class Parser:
             saved = self.position
             self.newlines()
             if self.accept("else"):
-                return IfStatement(condition, then, self.block())
+                return self.located(IfStatement(condition, then, self.block()), start)
             self.position = saved
-            return IfStatement(condition, then)
+            return self.located(IfStatement(condition, then), start)
         if _NAME.fullmatch(self.token) and (
             _NAME.fullmatch(self.tokens[self.position + 1][0])
             or self.tokens[self.position + 1][0] == ":="
@@ -166,22 +193,24 @@ class Parser:
         if self.accept("="):
             if not isinstance(expression, (Ident, FieldAccess, Deref)):
                 self.error("Assignment target must be a name, field access, or dereference")
-            return Assignment(expression, self.expression())
+            return self.located(Assignment(expression, self.expression()), start)
         if not isinstance(expression, FunctionCall):
             self.error("Expected a declaration, assignment, or function call")
         return expression
 
     def expression(self, minimum=0):
+        start = self.position
         left = self.primary()
         while self.token in _PRECEDENCE and _PRECEDENCE[self.token] >= minimum:
             op = self.token
             self.position += 1
             self.newlines()
             right = self.expression(_PRECEDENCE[op] + 1)
-            left = Operation(op, left, right)
+            left = self.located(Operation(op, left, right), start)
         return left
 
     def primary(self):
+        start = self.position
         if self.accept("new"):
             value = New(self.primary())
         elif self.accept("&"):
@@ -195,7 +224,8 @@ class Parser:
             params = []
             self.newlines()
             while not self.accept(")"):
-                params.append(Variable(self.name(), self.type()))
+                param_start = self.position
+                params.append(self.located(Variable(self.name(), self.type()), param_start))
                 self.newlines()
                 if not self.accept(","):
                     self.expect(")")
@@ -214,13 +244,15 @@ class Parser:
             negative = self.accept("-")
             if not negative:
                 self.expect("+")
+            zero = self.located(Number(0), start) if negative else None
             operand = self.primary()
-            value = Operation("-", Number(0), operand) if negative else operand
+            value = Operation("-", zero, operand) if negative else operand
         else:
             value = Ident(self.name())
+        value = self.located(value, start)
         while self.token in (".", "("):
             if self.accept("."):
-                value = FieldAccess(value, self.name())
+                value = self.located(FieldAccess(value, self.name()), start)
                 continue
             self.expect("(")
             args = []
@@ -232,7 +264,7 @@ class Parser:
                     self.expect(")")
                     break
                 self.newlines()
-            value = FunctionCall(value, args)
+            value = self.located(FunctionCall(value, args), start)
         return value
 
 

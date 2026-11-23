@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from runtime_types import dataclass
 from enum import Enum, auto
 
 

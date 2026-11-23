@@ -1,61 +1,39 @@
-from typeguard import typechecked
-from ast_ import Block, ClassDef, FunctionCall, FunctionDef, Ident, IfStatement, Number, Operation, Program, ReturnStmt, ScopeInfo, Type, Variable
+from current_line import current_line
+from sizeOf import SizeOf
+from dataclasses import fields
+from parent_referencing import setUpParentPositioningWithinFunction
+from ast_ import ClassDef, FunctionDef, Ident, ScopeInfo
 from compilerTools import getTypeSize, getVariable
-from generate_bytecode import makeFunctionByteCode
-from instructions import CallFunctionWithParamStackSize, PushNumber
+from generate_bytecode import makeFunctionByteCode, makeStatementByteCode
+from instructions import CallFunctionWithParamStackSize, Instruction, PushNumber, OffsetOfField
 from more_compiler_tools import assignFieldOffsets
 from parser import parse_file
 import runtime_data
-from runtime_data_types import MemLocationKind, MemSlot
-from typeChecker import typeCheckFunction
+from source_range import Position, Range
+from typeChecker import typeCheckFunction, typeCheckVariable
 from vm import Vm
 
 
 program = parse_file("main.code")
 
 
+for symbol in program.symbols:
+    if not isinstance(symbol.defaultValue, ClassDef):
+        continue
+    symbol.defaultValue.parent_positioning = ScopeInfo(program)
+    assignFieldOffsets(symbol.defaultValue)
 
 
-def setUpParentPositioningWithinBlock(block: Block):
-    for (i, statement) in enumerate(block.statements):
-        if isinstance(statement, Block):
-            statement.parent_positioning = ScopeInfo(block, i)
-            setUpParentPositioningWithinBlock(statement)
-        if isinstance(statement, IfStatement):
-            statement.then.parent_positioning = ScopeInfo(block, i)
-            setUpParentPositioningWithinBlock(statement.then)
-            if statement.else_:
-                statement.else_.parent_positioning = ScopeInfo(block, i)
-                setUpParentPositioningWithinBlock(statement.else_)
-
-@typechecked
-def setUpParentPositioningWithinFunction(function: FunctionDef):
-    function.body.parent_positioning = ScopeInfo(function)
-    setUpParentPositioningWithinBlock(function.body)
-
+global_instructions: list[Instruction] = []
 for symbol in program.symbols:
     if isinstance(symbol.defaultValue, FunctionDef):
         continue
     if isinstance(symbol.defaultValue, ClassDef):
         continue
-    size = getTypeSize(symbol.type_, ScopeInfo(program))
-    symbol.compileTimeInfo_memSlot = MemSlot(runtime_data.globalMemBumSlot, MemLocationKind.global_, size)
-    runtime_data.globalMemBumSlot+=size
-    
-
-    
-for symbol in program.symbols:
-    if isinstance(symbol.defaultValue, ClassDef):
-        symbol.defaultValue.parent_positioning = ScopeInfo(program)
+    typeCheckVariable(symbol, ScopeInfo(program))
+    global_instructions.extend(makeStatementByteCode(symbol, ScopeInfo(program)))
 
 
-
-
-for symbol in program.symbols:
-    if not isinstance(symbol.defaultValue, ClassDef):
-        continue
-    assignFieldOffsets(symbol.defaultValue)
-        
 for symbol in program.symbols:
     if not isinstance(symbol.defaultValue, FunctionDef):
         continue
@@ -82,30 +60,28 @@ for function in runtime_data.FunctionDefinitionsToTurnIntoInstructions:
     runtime_data.functionInstructions.extend(makeFunctionByteCode(function, ScopeInfo(program), isFromConstructor=function.isConstructor))
 
 
-
-
-
 main_function_symbol, _ = getVariable(Ident("main"), ScopeInfo(program))
 main_function = main_function_symbol.defaultValue
 assert isinstance(main_function, FunctionDef)
 
 
+all_instructions = runtime_data.functionInstructions+global_instructions
+
+for instruction in all_instructions:
+    for f in fields(instruction):
+        if isinstance(getattr(instruction, f.name), SizeOf):
+            so: SizeOf = getattr(instruction, f.name)
+            setattr(instruction, f.name, getTypeSize(so.type_, ScopeInfo(program)))
+        if isinstance(getattr(instruction, f.name), OffsetOfField):
+            so: OffsetOfField = getattr(instruction, f.name)
+            field = so.cls.getField(so.field)
+            setattr(instruction, f.name, field.compileTimeInfo_memSlot.memOffset)
 
 
-
-
-
-
-
-
-vm = Vm(runtime_data.functionInstructions)
-vm.stack.extend([None] * runtime_data.globalMemBumSlot)
-vm.instructions.append(PushNumber(main_function.compilerData.functionRuntimeId))
-vm.instructions.append(CallFunctionWithParamStackSize(0))
+start_ = Range(start=Position("start_.code", 0, 0), end=Position("start_.code", 0, 0))
+vm = Vm(all_instructions)
+vm.instructions.append(PushNumber(main_function.compilerData.functionRuntimeId, range=start_, created_at=current_line()))
+vm.instructions.append(CallFunctionWithParamStackSize(0, range=start_, created_at=current_line()))
+vm.stack.extend([None] * runtime_data.globalMemBumpSlot)
+vm.instructionPtr = len(runtime_data.functionInstructions)
 vm.execute()
-
-
-
-
-
-getTypeSize(program.symbols[0].type_, ScopeInfo(Program, 0))

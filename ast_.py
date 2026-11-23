@@ -1,5 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import field
+from runtime_types import dataclass
 from typing import TypeAlias
+from source_range import Node, Position, Range
 
 from builtInFunctions import BuiltInFunction
 from runtime_data_types import MemLocationKind, MemSlot
@@ -8,7 +10,7 @@ import utils
 
 
 @dataclass
-class Program:
+class Program(Node):
     symbols: list[Variable]
 
 
@@ -18,73 +20,73 @@ class ClassDefCompilerData:
     memSlotUpto: int = 0
 
 @dataclass
-class ClassDef:
+class ClassDef(Node):
     fields: list[Variable]
     parent_positioning: ScopeInfo|None = None
-    compilerData: ClassDefCompilerData = None
+    compilerData: ClassDefCompilerData|None = None
 
-    def getFeild(self, name: str):
+    def getField(self, name: str) -> Variable:
         for field in self.fields:
             if field.name == name:
                 return field
 
 
 @dataclass
-class Number:
+class Number(Node):
     number: int
 
 
 @dataclass
-class String:
+class String(Node):
     string: str
 
 
 @dataclass
-class Operation:
+class Operation(Node):
     op: str
     left:Expression
     right:Expression
 
 
 @dataclass
-class FunctionCall:
+class FunctionCall(Node):
     functionReference: Expression
     args: list[Expression]
 
 
 @dataclass
-class FieldAccess:
+class FieldAccess(Node):
     object: Expression
     fieldName: str
 
 
 @dataclass
-class IfStatement:
+class IfStatement(Node):
     expression: Expression
     then: Block
     else_: Block|None = None
 @dataclass
-class Ident:
+class Ident(Node):
     name: str
 
 
 @dataclass
-class Pointer:
+class Pointer(Node):
     pointsTo: Expression
 
 
 @dataclass
-class Deref:
+class Deref(Node):
     pointer: Expression
 
 
 @dataclass
-class New:
+class New(Node):
     expression: Expression
 
 
 @dataclass
-class Variable:
+class Variable(Node):
     name: str
     type_: Type|None
     defaultValue: Expression|None = None
@@ -92,7 +94,7 @@ class Variable:
 
 
 @dataclass
-class Assignment:
+class Assignment(Node):
     left: Expression    
     right: Expression 
 
@@ -100,7 +102,7 @@ class Assignment:
 
 
 @dataclass
-class Type:
+class Type(Node):
     name: str
     subtypes: list[Type] = field(default_factory=list)
 
@@ -118,7 +120,7 @@ class CompilerData:
     functionRuntimeId: int|None = None
     memSlotUpto = 0
 @dataclass
-class FunctionDef:
+class FunctionDef(Node):
     params: list[Variable]
     ReturnType: Type
     body: Block
@@ -129,13 +131,13 @@ class FunctionDef:
 
 
 @dataclass
-class Block:
+class Block(Node):
     statements: list[Statement]
     parent_positioning: ScopeInfo|None = None
 
 
 @dataclass
-class ReturnStmt:
+class ReturnStmt(Node):
     value: Expression
 
 
