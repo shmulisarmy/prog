@@ -6,7 +6,7 @@ from typing import TypeAlias
 from ast_ import Assignment, Block, ClassDef, ClassReturn, Deref, Expression, FieldAccess, FunctionCall, FunctionDef, Ident, IfStatement, New, Number, Operation, Pointer, Program, ReturnStmt, ScopeInfo, Statement, Type, Variable
 from builtInFunctions import BuiltInFunction
 from compilerTools import getClass, getExpressionType, getTypeSize, getVariable, resolveFunctionReferenceToDefinition
-from instructions import Allocate, OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushNumber, ReturnInstruction, OffsetOfField
+from instructions import Allocate, OffsetPointer, BinaryOperation, CallFunctionWithParamStackSize, DerefInstruction, Instruction, JumpIfZero, PlaceAbsoluteMemSlotOnStack, PlaceStackMemoryIntoMemslotOnStack, PlaceStackMemoryIntoSlot, PushFunctionDefReference, PushNumber, ReturnInstruction, OffsetOfField
 import runtime_data
 from runtime_data_types import MemLocationKind, MemSlot
 
@@ -19,7 +19,6 @@ def makeFunctionByteCode(function: FunctionDef, scopeInfo: ScopeInfo, isFromCons
         instructions.extend(makeStatementByteCode(param, ScopeInfo(function), isFromConstructor=isFromConstructor))
     instructions.extend(makeBlockByteCode(function.body, ScopeInfo(function, 0)))
     # as we make turn the function into instructions we also dedicate memory slots to params and vars
-    runtime_data.FunctionStackBumpSize[function.compilerData.functionRuntimeId] = function.compilerData.memSlotUpto
     return instructions
 def makeBlockByteCode(block: Block, scopeInfo: ScopeInfo):
     instructions: list[Instruction] = []
@@ -110,7 +109,9 @@ def makeExpressionByteCode(expression: Expression, scopeInfo: ScopeInfo) -> list
             if not functionDef.compilerData.functionRuntimeId:
                 functionDef.compilerData.functionRuntimeId = runtime_data.functionIds
                 runtime_data.functionIds+=1
-            instructions.append(PushNumber(functionDef.compilerData.functionRuntimeId, range=expression.functionReference.range, created_at=current_line()))
+            if expression.genericArgs not in functionDef.instanciations:
+                functionDef.instanciations[expression.genericArgs] = None
+            instructions.append(PushFunctionDefReference(function=functionDef, range=expression.functionReference.range, created_at=current_line(), genericInstanciation=[], genericArgs=expression.genericArgs))
             instructions.append(CallFunctionWithParamStackSize(SizeOf(getExpressionType(functionDef, functionDefScopeInfo)), range=expression.range, created_at=current_line()))
             return instructions
         case Ident():

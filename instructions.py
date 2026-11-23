@@ -1,6 +1,6 @@
 from dataclasses import field
 from source_range import Range
-from ast_ import ClassDef
+from ast_ import ClassDef, Expression, FunctionDef, Type
 from sizeOf import SizeOf
 from runtime_types import dataclass
 from typing import TypeAlias
@@ -15,6 +15,18 @@ class PushNumber:
     range: Range = field(kw_only=True, compare=False)
     created_at: str = field(kw_only=True, compare=False)
     value: int
+
+
+
+@dataclass
+class PushFunctionDefReference:
+    range: Range = field(kw_only=True, compare=False)
+    created_at: str = field(kw_only=True, compare=False)
+    function: FunctionDef
+    genericInstanciation: list[Type]
+
+
+
 
 
 @dataclass

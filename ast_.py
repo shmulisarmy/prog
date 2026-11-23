@@ -1,12 +1,18 @@
 from dataclasses import field
 from runtime_types import dataclass
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 from source_range import Node, Position, Range
 
 from builtInFunctions import BuiltInFunction
 from runtime_data_types import MemLocationKind, MemSlot
 from classReturn import ClassReturn
 import utils
+
+
+
+if TYPE_CHECKING:
+    from instructions import Instruction
+
 
 
 @dataclass
@@ -52,6 +58,7 @@ class Operation(Node):
 class FunctionCall(Node):
     functionReference: Expression
     args: list[Expression]
+    genericArgs: list[Type]
 
 
 @dataclass
@@ -119,6 +126,7 @@ class Type(Node):
 class CompilerData:
     functionRuntimeId: int|None = None
     memSlotUpto = 0
+    irInstructions: list|None = None
 @dataclass
 class FunctionDef(Node):
     params: list[Variable]
@@ -126,6 +134,9 @@ class FunctionDef(Node):
     body: Block
     parent_positioning: ScopeInfo|None = None
     compilerData: CompilerData = field(default_factory=lambda:CompilerData())
+    genericParams: list[str] = field(default_factory=list)
+    instanciations: dict[list[Type], int|None] = field(default_factory=dict) #example: key: [int,int], value: 1 (runtime ready function id)
+    type_map: dict[str, Type]|None = None
     isConstructor: bool = False
     
 
